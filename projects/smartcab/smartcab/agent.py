@@ -135,7 +135,7 @@ class LearningAgent(Agent):
                 'forward': 0.0,
                 'right': 0.0,
             }
-        elif state[0] == 'red' and state[1] == 'right' and state[3] != 'forward':  # should turn right but cannot because of oncoming from left
+        elif state[0] == 'red' and state[1] == 'right' and state[3] == 'forward':  # should turn right but cannot because of oncoming from left
             self.Q[state] = {
                 None: 0.0,
             }
@@ -172,7 +172,7 @@ class LearningAgent(Agent):
             if random.random() < self.epsilon:
                 actionNum = len(self.Q[state])
                 rint=random.randint(0, actionNum - 1)
-                print("ActionNum:", actionNum, rint, self.Q[state])
+                # print("ActionNum:", actionNum, rint, self.Q[state])
 
                 return self.Q[state].keys()[rint]
             else:
@@ -234,7 +234,7 @@ def run():
     #   verbose     - set to True to display additional output from the simulation
     #   num_dummies - discrete number of dummy agents in the environment, default is 100
     #   grid_size   - discrete number of intersections (columns, rows), default is (8, 6)
-    env = Environment(verbose=False)
+    env = Environment(verbose=True)
     
     ##############
     # Create the driving agent
