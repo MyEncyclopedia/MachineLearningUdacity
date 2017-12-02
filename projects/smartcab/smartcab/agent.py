@@ -24,6 +24,7 @@ class LearningAgent(Agent):
         ## TO DO ##
         ###########
         # Set any additional class parameters as needed
+        self.num_trial = 1
 
 
     def reset(self, destination=None, testing=False):
@@ -45,11 +46,13 @@ class LearningAgent(Agent):
             self.epsilon = 0
             self.alpha = 0
         else:
-            self.epsilon -= 0.04
-            if self.epsilon < 0:
-                self.epsilon = 0
+            self.num_trial = self.num_trial + 1
 
-        return None
+            # self.epsilon -= 0.04
+            # if self.epsilon < 0:
+            #     self.epsilon = 0
+            self.epsilon = math.exp(-1 * self.alpha * self.num_trial)
+            # self.epsilon = math.cos(self.alpha * self.num_trial)
 
     def build_state(self):
         """ The build_state function is called when the agent requests data from the 
@@ -109,46 +112,14 @@ class LearningAgent(Agent):
         # When learning, check if the 'state' is not in the Q-table
         # If it is not, create a new dictionary for that state
         #   Then, for each action available, set the initial Q-value to 0.0
-        if self.Q.has_key(state):
-            return
-        # else:
-        #     self.Q[state] = {
-        #         'forward': 0.0,
-        #         'left': 0.0,
-        #         'right': 0.0,
-        #         None: 0.0,
-        #     }
-        elif state[0] == 'green' and state[1] == 'forward':
-            self.Q[state] = {
-                'forward': 0.0,
+        if self.learning:
+            if state not in self.Q:
+                self.Q[state] = {
+                    'forward': 0.0,
+                    'left': 0.0,
+                    'right': 0.0,
+                    None: 0.0,
             }
-        elif state[0] == 'green' and state[1] == 'right':
-            self.Q[state] = {
-                'right': 0.0,
-            }
-        elif state[0] == 'green' and state[1] == 'left' and (state[2] is None or state[2] == 'left'):
-            self.Q[state] = {
-                'left': 0.0,
-            }
-        elif state[0] == 'green' and state[1] == 'left': #  cannot turn left because of oncoming cars
-            self.Q[state] = {
-                'forward': 0.0,
-                'right': 0.0,
-            }
-        elif state[0] == 'red' and state[1] == 'right' and state[3] == 'forward':  # should turn right but cannot because of oncoming from left
-            self.Q[state] = {
-                None: 0.0,
-            }
-        elif state[0] == 'red' and state[1] == 'right':  # should turn right and ok
-            self.Q[state] = {
-                'right': 0.0,
-            }
-        elif state[0] == 'red':  #
-            self.Q[state] = {
-                None: 0.0,
-            }
-
-        return
 
 
     def choose_action(self, state):
@@ -167,14 +138,15 @@ class LearningAgent(Agent):
         # Otherwise, choose an action with the highest Q-value for the current state
         # Be sure that when choosing an action with highest Q-value that you randomly select between actions that "tie".
         if not self.learning:
-            return self.env.valid_actions[random.randint(0,3)]
+            return random.choice(self.env.valid_actions)
         else:
             if random.random() < self.epsilon:
-                actionNum = len(self.Q[state])
-                rint=random.randint(0, actionNum - 1)
+                return random.choice(self.valid_actions)
+                # actionNum = len(self.Q[state])
+                # rint=random.randint(0, actionNum - 1)
                 # print("ActionNum:", actionNum, rint, self.Q[state])
 
-                return self.Q[state].keys()[rint]
+                # return self.Q[state].keys()[rint]
             else:
                 return self.action_highestQ(state)
 
@@ -207,7 +179,6 @@ class LearningAgent(Agent):
             action2QDict = self.Q[state]
             new_state = self.build_state()
             action2QDict[action] = action2QDict[action] + self.alpha * (reward + self.get_maxQ(new_state) - action2QDict[action])
-        return
 
 
     def update(self):
@@ -221,8 +192,6 @@ class LearningAgent(Agent):
         reward = self.env.act(self, action) # Receive a reward
         self.learn(state, action, reward)   # Q-learn
 
-        return
-        
 
 def run():
     """ Driving function for running the simulation. 
@@ -242,7 +211,9 @@ def run():
     #   learning   - set to True to force the driving agent to use Q-learning
     #    * epsilon - continuous value for the exploration factor, default is 1
     #    * alpha   - continuous value for the learning rate, default is 0.5
-    agent = env.create_agent(LearningAgent, learning=True, epsilon=1.0, alpha=0.5)
+    # agent = env.create_agent(LearningAgent, learning=True, epsilon=1, alpha=0.5)
+
+    agent = env.create_agent(LearningAgent, learning=True, epsilon=0.1, alpha=0.01)
     
     ##############
     # Follow the driving agent
@@ -257,7 +228,7 @@ def run():
     #   display      - set to False to disable the GUI if PyGame is enabled
     #   log_metrics  - set to True to log trial and simulation results to /logs
     #   optimized    - set to True to change the default log file name
-    sim = Simulator(env, display=False, update_delay=0.001, log_metrics=True)
+    sim = Simulator(env, display=False, update_delay=0.001, log_metrics=True, optimized=True)
     
     ##############
     # Run the simulator
