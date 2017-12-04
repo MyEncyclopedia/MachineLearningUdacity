@@ -47,10 +47,8 @@ class LearningAgent(Agent):
             self.alpha = 0
         else:
             self.num_trial = self.num_trial + 1
-
-            # self.epsilon -= 0.04
-            # if self.epsilon < 0:
-            #     self.epsilon = 0
+            # the following line is for non-optimized
+            # self.epsilon = max(self.epsilon-0.04, 0)
             self.epsilon = math.exp(-1 * self.alpha * self.num_trial)
             # self.epsilon = math.cos(self.alpha * self.num_trial)
 
@@ -61,14 +59,8 @@ class LearningAgent(Agent):
 
         # Collect data about the environment
         waypoint = self.planner.next_waypoint() # The next waypoint
-        # print("buildstate waypoint", waypoint)
         inputs = self.env.sense(self)           # Visual input - intersection light and traffic
-        # print("buildstate inputs", inputs)
-        # time.sleep(20)
-        # print("done")
-
         deadline = self.env.get_deadline(self)  # Remaining deadline
-        # print("buildstate deadline", deadline)
 
         ########### 
         ## TO DO ##
@@ -81,7 +73,6 @@ class LearningAgent(Agent):
         
         # Set 'state' as a tuple of relevant data for the agent        
         state = (inputs['light'], waypoint, inputs['oncoming'], inputs['left'])
-        print("buildstate: ", state)
         return state
 
 
@@ -94,7 +85,7 @@ class LearningAgent(Agent):
         ###########
         # Calculate the maximum Q-value of all actions for a given state
 
-        maxQ = 0
+        maxQ = -1000
         action2Q = self.Q.get(state, None)
         if action2Q is not None:
             for k in action2Q:
@@ -142,15 +133,10 @@ class LearningAgent(Agent):
         else:
             if random.random() < self.epsilon:
                 return random.choice(self.valid_actions)
-                # actionNum = len(self.Q[state])
-                # rint=random.randint(0, actionNum - 1)
-                # print("ActionNum:", actionNum, rint, self.Q[state])
-
-                # return self.Q[state].keys()[rint]
             else:
-                return self.action_highestQ(state)
+                return self.choose_highestQ_action(state)
 
-    def action_highestQ(self, state):
+    def choose_highestQ_action(self, state):
         keyList = []
         maxQ = -1000
         action2QDict = self.Q[state]
@@ -161,9 +147,7 @@ class LearningAgent(Agent):
             elif action2QDict[k] == maxQ:
                 keyList.append(k)
 
-        print("keyList ", keyList, action2QDict, state)
-        randIdx = random.randint(0, len(keyList) - 1)
-        return keyList[randIdx]
+        return random.choice(keyList)
 
     def learn(self, state, action, reward):
         """ The learn function is called after the agent completes an action and
@@ -177,8 +161,14 @@ class LearningAgent(Agent):
         #   Use only the learning rate 'alpha' (do not use the discount factor 'gamma')
         if self.learning:
             action2QDict = self.Q[state]
-            new_state = self.build_state()
-            action2QDict[action] = action2QDict[action] + self.alpha * (reward + self.get_maxQ(new_state) - action2QDict[action])
+            # note the full Q-value update should be
+            # Q(a,s) <- Q(a,s) + alpha * (R(s) + gamma * maxQ(a',s') - Q(a,s))
+            # See Eq 21.8 in Chapter 21 of Artificial Intelligence: A Modern Approach 2ed
+            # or Q_value_update.gif in the project root
+            #
+            # action2QDict[action] = action2QDict[action] + self.alpha * (reward + gamma * self.get_maxQ(self.build_state()) - action2QDict[action])
+            # setting gamma to 0 leads to the following statement
+            action2QDict[action] = action2QDict[action] + self.alpha * (reward - action2QDict[action])
 
 
     def update(self):
@@ -213,7 +203,7 @@ def run():
     #    * alpha   - continuous value for the learning rate, default is 0.5
     # agent = env.create_agent(LearningAgent, learning=True, epsilon=1, alpha=0.5)
 
-    agent = env.create_agent(LearningAgent, learning=True, epsilon=0.1, alpha=0.01)
+    agent = env.create_agent(LearningAgent, learning=True, epsilon=0.2, alpha=0.01)
     
     ##############
     # Follow the driving agent
