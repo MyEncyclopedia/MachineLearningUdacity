@@ -172,18 +172,30 @@ class Robot(object):
                     # raise Exception("Movement stopped by wall")
 
 
-def weighted_random(dir_prob):
-    # prob = [1, 2, 9, 5]  # backward, turn left, forward, turn right
+def weighted_random(weights):
+    """
+    Decides next move according to `loc` and its `heading`.
+
+    Parameters
+    ----------
+    weights : list of int >=0
+        Weights, 0 indicating impossible
+
+    Returns
+    -------
+    idx_to_weights : int
+        The selected index.
+    """
     ranges = [[], [], [], []]
     total = 0
-    for direction in range(4):
-        ranges[direction] = range(total, total + dir_prob[direction])
-        total += dir_prob[direction]
+    for idx in range(len(weights)):
+        ranges[idx] = range(total, total + weights[idx])
+        total += weights[idx]
 
     rnd_dir = random.randint(0, total - 1)
-    for direction in range(4):
-        if rnd_dir in ranges[direction]:
-            return direction
+    for idx in range(len(weights)):
+        if rnd_dir in ranges[idx]:
+            return idx
 
 
 def to_action(heading, new_heading, step=1):
@@ -218,24 +230,23 @@ class SearchingExploration(object):
     def __init__(self, explored_maze):
         self.explored_maze = explored_maze
 
-    """
-    Decides next move according to `loc` and its `heading`.
-
-    Parameters
-    ----------
-    loc : tuple (int, int)
-        Tuple of location, in format of (0, 0).
-    heading : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-
-    Returns
-    -------
-    next_action : tuple of (rotation: int, movement: int), or tuple of ('Reset', 'Reset')
-        For example: (90, 3).
-    """
-
     @abc.abstractmethod
     def next_move(self, loc, heading):
+        """
+        Decides next move according to `loc` and its `heading`.
+
+        Parameters
+        ----------
+        loc : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        heading : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+
+        Returns
+        -------
+        next_action : tuple of (rotation: int, movement: int), or tuple of ('Reset', 'Reset')
+            For example: (90, 3).
+        """
         pass
 
 
@@ -244,26 +255,25 @@ class ContinuingExploration(object):
     def __init__(self, explored_maze):
         self.explored_maze = explored_maze
 
-    """
-    Decides next move according to `loc` and its `heading`.
-
-    Parameters
-    ----------
-    loc : tuple (int, int)
-        Tuple of location, in format of (0, 0).
-    heading : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-    steps : int
-        number of steps
-
-    Returns
-    -------
-    next_action : tuple of (rotation: int, movement: int), or tuple of ('Reset', 'Reset')
-        For example: (90, 3).
-    """
-
     @abc.abstractmethod
     def next_move(self, loc, heading, steps):
+        """
+        Decides next move according to `loc` and its `heading`.
+
+        Parameters
+        ----------
+        loc : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        heading : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+        steps : int
+            number of steps
+
+        Returns
+        -------
+        next_action : tuple of (rotation: int, movement: int), or tuple of ('Reset', 'Reset')
+            For example: (90, 3).
+        """
         pass
 
 
@@ -271,34 +281,34 @@ class RunShortestPath(object):
     def __init__(self, explored_maze):
         self.explored_maze = explored_maze
 
-    """
-    Computes list of actions that would follow shortest path starting `loc_start` with `heading`.
-
-    Parameters
-    ----------
-    loc_start : tuple (int, int)
-        Tuple of location, in format of (0, 0).
-    heading : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-
-    Returns
-    -------
-    action_list : list of tuple (rotation: int, movement: int)
-        For example: [(90, 3), [0, 3)]
-    """
     @abc.abstractmethod
     def compute_p2p_action(self, loc_start, heading, *args):
+        """
+        Computes list of actions that would follow shortest path starting `loc_start` with `heading`.
+
+        Parameters
+        ----------
+        loc_start : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        heading : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+
+        Returns
+        -------
+        action_list : list of tuple (rotation: int, movement: int)
+            For example: [(90, 3), [0, 3)]
+        """
         pass
 
-    """
-    Returns next action computed previously by `compute_p2p_action`.
-
-    Returns
-    -------
-    action : tuple of (rotation: int, movement: int)
-    """
     @abc.abstractmethod
     def next_action(self):
+        """
+        Returns next action computed previously by `compute_p2p_action`.
+
+        Returns
+        -------
+        action : tuple of (rotation: int, movement: int)
+        """
         pass
 
 
@@ -320,21 +330,21 @@ class ExploredMaze(object):
                 if c == maze_dim - 1:
                     cell.surroundings[D_UP] = Cell.WALL
 
-    """
-    Updates maze connectivity status with sensor information.
-
-    Parameters
-    ----------
-    loc : tuple (int, int)
-        Tuple of location, in format of (0, 0).
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-    depth : int
-        0 indicates wall;
-        other positive number indicating how far from this `loc` mouse can move forward.
-    
-    """
     def sensor_update(self, loc, direction, depth):
+        """
+        Updates maze connectivity status with sensor information.
+
+        Parameters
+        ----------
+        loc : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+        depth : int
+            0 indicates wall;
+            other positive number indicating how far from this `loc` mouse can move forward.
+
+        """
         if depth == 0:
             self.cell_map[loc].set_wall(direction)
             neighbour_loc = self.loc_of_neighbour(loc, direction)
@@ -345,48 +355,48 @@ class ExploredMaze(object):
             self.cell_map[loc].connect(direction, self.cell_map[neighbour_loc])
             self.sensor_update(neighbour_loc, direction, depth - 1)
 
-    """
-    Return location relative to `loc`. If the resulting location is out of maze, None is returned.
-    
-    Parameters
-    ----------
-    loc : tuple (int, int)
-        Tuple of location, in format of (0, 0).
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-    step : int
-        distance to `loc`, optional
-    
-    Returns
-    -------
-    new_location: tuple of (rotation: int, movement: int), or None
-        None when out of maze.
-    """
     def loc_of_neighbour(self, loc, direction, step=1):
+        """
+        Return location relative to `loc`. If the resulting location is out of maze, None is returned.
+
+        Parameters
+        ----------
+        loc : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+        step : int
+            distance to `loc`, optional
+
+        Returns
+        -------
+        new_location: tuple of (rotation: int, movement: int), or None
+            None when out of maze.
+        """
         neighbour = (loc[0] + step * COOR_MOVE[direction][0], loc[1] + step * COOR_MOVE[direction][1])
         if neighbour[0] < 0 or neighbour[0] >= self.maze_dim or neighbour[1] < 0 or neighbour[1] >= self.maze_dim:
             return None
         else:
             return neighbour
 
-    """
-    Checks whether the mouse can move from a location along a direction according to current connectivity status.
-    
-    Parameters
-    ----------
-    loc : tuple (int, int)
-        Tuple of location, in format of (0, 0).
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-    step : int
-        distance to `loc`, optional
-    
-    Returns
-    -------
-    is_permissible: True, False, None
-        None indicates there is not enough information along the way, i.e. not sure there is wall between two cells in the way.
-    """
     def is_permissible(self, loc, direction, step=1):
+        """
+        Checks whether the mouse can move from a location along a direction according to current connectivity status.
+
+        Parameters
+        ----------
+        loc : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+        step : int
+            distance to `loc`, optional
+
+        Returns
+        -------
+        is_permissible: True, False, None
+            None indicates there is not enough information along the way, i.e. not sure there is wall between two cells in the way.
+        """
         while step > 0:
             if not self.cell_map[loc].is_permissible(direction):
                 return self.cell_map[loc].is_permissible(direction)
@@ -400,21 +410,21 @@ class ExploredMaze(object):
     def get_neighbours(self, loc):
         return self.cell_map[loc].get_neighbours()
 
-    """
-    Computes set of cells that can be reached from (0, 0).
-
-    Parameters
-    ----------
-    loc_start : tuple (int, int), default value (0, 0)
-        Tuple of starting location, in format of (0, 0).
-    loc_excluded : tuple (int, int), default value None
-        Tuple of location to be excluded from path, in format of (0, 0).
-
-    Returns
-    -------
-    reached_set: set of location tuple (int, int)
-    """
     def compute_reachable_cells(self, loc_start=(0, 0), loc_excluded=None):
+        """
+        Computes set of cells that can be reached from (0, 0).
+
+        Parameters
+        ----------
+        loc_start : tuple (int, int), default value (0, 0)
+            Tuple of starting location, in format of (0, 0).
+        loc_excluded : tuple (int, int), default value None
+            Tuple of location to be excluded from path, in format of (0, 0).
+
+        Returns
+        -------
+        reached_set: set of location tuple (int, int)
+        """
         reached_set = set()
         q = Queue.Queue()
         if loc_start != loc_excluded:
@@ -442,10 +452,6 @@ class ExploredMaze(object):
             self.cell_map[loc].connect(direction, self.cell_map[neighbour_loc])
 
 
-    # def get_cell(self, loc):
-    #     return self.cell_map[loc]
-
-
 class Cell(object):
     UNEXPLORED = -1
     WALL = 1
@@ -454,61 +460,61 @@ class Cell(object):
         self.loc = loc
         self.surroundings = [Cell.UNEXPLORED for x in range(4)]
 
-    """
-    Connects this cell with a neighbouring cell and vice versa.
-
-    Parameters
-    ----------
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-    node : tuple (int, int)
-        neighbouring location.
-        
-    Raises
-    ------
-    Exception
-        When wall between these 2 nodes already established.
-    """
     def connect(self, direction, node):
+        """
+        Connects this cell with a neighbouring cell and vice versa.
+
+        Parameters
+        ----------
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+        node : tuple (int, int)
+            neighbouring location.
+
+        Raises
+        ------
+        Exception
+            When wall between these 2 nodes already established.
+        """
         node_direction = opposing_direction(direction)
         if self.surroundings[direction] == Cell.WALL and node.surroundings[node_direction] == Cell.WALL:
             raise Exception("Trying to connect nodes where WALL already exists, " + str(self) + " <-> " + str(node) )
         self.surroundings[direction] = node
         node.surroundings[node_direction] = self
 
-    """
-    Sets a wall to one edge of current cell.
-
-    Parameters
-    ----------
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT, the direction relative to current cell.
-
-    Raises
-    ------
-    Exception
-        When these 2 nodes are already connected.
-    """
     def set_wall(self, direction):
+        """
+        Sets a wall to one edge of current cell.
+
+        Parameters
+        ----------
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT, the direction relative to current cell.
+
+        Raises
+        ------
+        Exception
+            When these 2 nodes are already connected.
+        """
         if self.surroundings[direction] == Cell.UNEXPLORED or self.surroundings[direction] == Cell.WALL:
             self.surroundings[direction] = Cell.WALL
         else:
             raise Exception("Already Connected for " + str(self) + ", " + str(direction))
 
-    """
-    Checks whether the mouse can move one step from current cell along the direction.
-
-    Parameters
-    ----------
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-
-    Returns
-    -------
-    is_permissible: True, False, None
-        None indicates there is not enough information, i.e. not sure there is wall in that direction.
-    """
     def is_permissible(self, direction):
+        """
+        Checks whether the mouse can move one step from current cell along the direction.
+
+        Parameters
+        ----------
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+
+        Returns
+        -------
+        is_permissible: True, False, None
+            None indicates there is not enough information, i.e. not sure there is wall in that direction.
+        """
         if self.surroundings[direction] == Cell.WALL:
             return False
         elif self.surroundings[direction] == Cell.UNEXPLORED:
@@ -516,17 +522,17 @@ class Cell(object):
         else:
             return True
 
-    """
-    Gets all connected neighbours currently explored.
-
-    Parameters
-    ----------
-
-    Returns
-    -------
-    neighbour_list: list of location tuple (int, int)
-    """
     def get_neighbours(self):
+        """
+        Gets all connected neighbours currently explored.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        neighbour_list: list of location tuple (int, int)
+        """
         return [x.loc for x in self.surroundings if x != Cell.WALL and x != Cell.UNEXPLORED ]
 
     def get_unexplored(self):
@@ -546,19 +552,23 @@ class Cell(object):
 
 class SearchingExploration_OneStepWeightedRandom(SearchingExploration):
 
+    def __init__(self, explored_maze, turn_weights=[1, 1, 1, 1]):
+        super(SearchingExploration_OneStepWeightedRandom, self).__init__(explored_maze)
+        self.turn_weights = turn_weights
+
     def next_move(self, loc, heading):
         # in case of dead end, turn right instead
         if all([not self.explored_maze.is_permissible(loc, new_heading)
                 for new_heading in [heading, turn_left(heading), turn_right(heading)]]):
             return 90, 0
 
-        prob = [0, 3, 5, 3]  # backward, turn left, forward, turn right
+        # prob = [0, 3, 5, 3]  # backward, turn left, forward, turn right
         turn_map = {1: turn_left(heading), 2: heading, 3: turn_right(heading)}
         for turn in range(1, 4):
             if not self.explored_maze.is_permissible(loc, turn_map[turn]):
-                prob[turn] = 0
+                self.turn_weights[turn] = 0
 
-        turn = weighted_random(prob)
+        turn = weighted_random(self.turn_weights)
         turn_to_action = {1: (-90, 1), 2: (0, 1), 3: (90, 1)}
         return turn_to_action[turn]
 
