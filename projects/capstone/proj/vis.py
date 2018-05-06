@@ -3,100 +3,38 @@ import turtle
 import sys
 import robot
 
+sq_size = 50
+origin = 0
+
+
+def square_top_left(loc):
+    global sq_size, origin
+    return origin + sq_size * loc[0], origin + sq_size * (loc[1] + 1)
+
+
+def square_top_right(loc):
+    global sq_size, origin
+    return origin + sq_size * (loc[0] + 1), origin + sq_size * (loc[1] + 1)
+
+
+def square_bottom_left(loc):
+    global sq_size, origin
+    return origin + sq_size * loc[0], origin + sq_size * loc[1]
+
+
+def square_bottom_right(loc):
+    global sq_size, origin
+    return origin + sq_size * (loc[0] + 1), origin + sq_size * loc[1]
+
+
+def square_center(loc):
+    global sq_size, origin
+    return origin + sq_size * loc[0] + sq_size/2, origin + sq_size * loc[1] + sq_size/2
+
+
 def draw_explored_maze(explored_maze, cell, heading):
-    sq_size = 50
+    global sq_size, origin
     origin = explored_maze.maze_dim * sq_size / -2
-
-    def draw_cell(loc):
-        wally.penup()
-        # wally.down()
-        # draw cell
-        wally.goto(origin + sq_size * loc[0] + sq_size/2 , origin + sq_size * (loc[1]+1) - sq_size/2 - sq_size/3)
-        wally.setheading(0)
-        # wally.goto(origin + sq_size * (loc[0]+1), origin + sq_size * (loc[1]+1))
-        wally.pendown()
-        if loc == cell:
-            wally.color("yellow")
-            wally.fillcolor("yellow")
-        elif explored_maze.get_unexplored(loc) > 0:
-            wally.color("red")
-            wally.fillcolor("red")
-        else:
-            wally.color("blue")
-            wally.fillcolor("blue")
-        wally.begin_fill()
-        wally.circle(sq_size/3)
-        wally.end_fill()
-        wally.penup()
-
-        if loc == cell:
-            wally.goto(origin + sq_size * loc[0] + sq_size/2 , origin + sq_size * (loc[1]+1) - sq_size/2)
-            wally.pensize(5)
-            wally.color("black")
-            wally.pendown()
-            if heading == robot.D_UP:
-                wally.setheading(90)
-            if heading == robot.D_RIGHT:
-                wally.setheading(0)
-            if heading == robot.D_DOWN:
-                wally.setheading(270)
-            if heading == robot.D_LEFT:
-                wally.setheading(180)
-            wally.forward(sq_size/2)
-            wally.penup()
-
-        wally.pensize(2)
-        wally.goto(origin + sq_size * loc[0] + sq_size/2 - 10, origin + sq_size * (loc[1]+1) - sq_size/2 - sq_size/3 + 10)
-        wally.color("black")
-        wally.write(str(loc), font=("Arial", 10, "normal"))
-
-        is_permissible = explored_maze.is_permissible(loc, robot.D_UP)
-        if not is_permissible:
-            wally.goto(origin + sq_size * loc[0], origin + sq_size * (loc[1]+1))
-            wally.setheading(0)
-            if is_permissible is None:
-                wally.color("grey")
-            else:
-                wally.color("black")
-            wally.pendown()
-            wally.forward(sq_size)
-            wally.penup()
-
-        is_permissible = explored_maze.is_permissible(loc, robot.D_RIGHT)
-        if not is_permissible:
-            wally.goto(origin + sq_size * (loc[0] + 1), origin + sq_size * loc[1])
-            wally.setheading(90)
-            if is_permissible is None:
-                wally.color("grey")
-            else:
-                wally.color("black")
-            wally.pendown()
-            wally.forward(sq_size)
-            wally.penup()
-
-        is_permissible = explored_maze.is_permissible(loc, robot.D_DOWN)
-        if not is_permissible:
-            wally.goto(origin + sq_size * loc[0], origin + sq_size * loc[1])
-            wally.setheading(0)
-            if is_permissible is None:
-                wally.color("grey")
-            else:
-                wally.color("black")
-            wally.pendown()
-            wally.forward(sq_size)
-            wally.penup()
-
-        is_permissible = explored_maze.is_permissible(loc, robot.D_LEFT)
-        if not is_permissible:
-            wally.goto(origin, origin + sq_size * loc[1])
-            wally.setheading(90)
-            if is_permissible is None:
-                wally.color("grey")
-            else:
-                wally.color("black")
-            wally.pendown()
-            wally.forward(sq_size)
-            wally.penup()
 
     window = turtle.Screen()
     wally = turtle.Turtle()
@@ -109,11 +47,74 @@ def draw_explored_maze(explored_maze, cell, heading):
     done_set = set()
     while len(to_draw_set) > 0:
         loc = to_draw_set.pop()
-        draw_cell(loc)
+        fill_color = "blue"
+        if loc == cell:
+            fill_color = "yellow"
+        elif explored_maze.get_unexplored(loc) > 0:
+            fill_color = "red"
+        draw_cell(wally, explored_maze, loc, fill_color)
+        if loc == cell:
+            draw_heading(wally, cell, heading)
         done_set.add(loc)
         for neighbour in explored_maze.get_neighbours(loc):
             if neighbour not in done_set:
                 to_draw_set.add(neighbour)
+
+
+def draw_cell(wally, explored_maze, loc, fill_color='yellow'):
+    wally.penup()
+    # wally.down()
+    # draw cell
+    wally.goto(origin + sq_size * loc[0] + sq_size/2 , origin + sq_size * (loc[1]+1) - sq_size/2 - sq_size/3)
+    wally.setheading(0)
+    # wally.goto(origin + sq_size * (loc[0]+1), origin + sq_size * (loc[1]+1))
+    wally.pendown()
+
+    wally.color(fill_color)
+    wally.fillcolor(fill_color)
+    wally.begin_fill()
+    wally.circle(sq_size/3)
+    wally.end_fill()
+    wally.penup()
+
+    wally.pensize(2)
+    wally.goto(origin + sq_size * loc[0] + sq_size/2 - 10, origin + sq_size * (loc[1]+1) - sq_size/2 - sq_size/3 + 10)
+    wally.color("black")
+    wally.write(str(loc), font=("Arial", 10, "normal"))
+
+    edge_list = [(robot.D_UP,    square_top_left(loc), 0),
+                 (robot.D_RIGHT, square_bottom_right(loc), 90),
+                 (robot.D_DOWN,  square_bottom_left(loc), 0),
+                 (robot.D_LEFT,  square_bottom_left(loc), 90)]
+    for edge in edge_list:
+        is_permissible = explored_maze.is_permissible(loc, edge[0])
+        if not is_permissible:
+            wally.goto(*edge[1])
+            wally.setheading(edge[2])
+            if is_permissible is None:
+                wally.color("grey")
+            else:
+                wally.color("black")
+            wally.pendown()
+            wally.forward(sq_size)
+            wally.penup()
+
+
+def draw_heading(wally, loc, heading):
+    wally.goto(origin + sq_size * loc[0] + sq_size/2 , origin + sq_size * (loc[1]+1) - sq_size/2)
+    wally.pensize(5)
+    wally.color("black")
+    wally.pendown()
+    if heading == robot.D_UP:
+        wally.setheading(90)
+    elif heading == robot.D_RIGHT:
+        wally.setheading(0)
+    elif heading == robot.D_DOWN:
+        wally.setheading(270)
+    elif heading == robot.D_LEFT:
+        wally.setheading(180)
+    wally.forward(sq_size/2)
+    wally.penup()
 
 
 if __name__ == '__main__':
@@ -122,7 +123,7 @@ if __name__ == '__main__':
     given as an argument when running the script.
     '''
 
-    # Intialize the window and drawing turtle.
+    # Initialize the window and drawing turtle.
     window = turtle.Screen()
     wally = turtle.Turtle()
     wally.speed(10)
