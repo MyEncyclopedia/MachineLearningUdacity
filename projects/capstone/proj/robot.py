@@ -3,11 +3,7 @@ import collections
 import random
 import Queue
 
-import numpy as np
 import vis
-
-# 1 test DijkstraStride
-# 2 test common func
 
 D_DOWN = 0
 D_LEFT = 1
@@ -15,7 +11,6 @@ D_UP = 2
 D_RIGHT = 3
 
 COOR_MOVE = {D_UP: [0, 1], D_DOWN: [0, -1], D_LEFT: [-1, 0], D_RIGHT: [1, 0]}
-# DIR_TO_ACTION = {D_UP: (0, 1), D_DOWN: (0, -1), D_LEFT: (-90, 1), D_RIGHT: (90, 1)}
 
 
 class Robot(object):
@@ -40,23 +35,15 @@ class Robot(object):
         self.heading = D_UP
         self.maze_dim = maze_dim
         self.steps = 0
+        self.trail = []
+        self.trail.append((self.location, self.heading))
         self.explored_maze = ExploredMaze(maze_dim)
 
-        # self.searching_exploration = SearchingExploration_OneStepWeightedRandom(self.explored_maze)
-        # self.searching_exploration = SearchingExploration_OneStepFavorUnexploredSpace(self.explored_maze)
         self.searching_exploration = SearchingExploration_GoalOriented(self.explored_maze)
-        # self.continuing_exploration = ContinuingExploration_CoverAllGoals(self.explored_maze)
         self.continuing_exploration = None
-        # self.run_shortest_path = DijkstraStride(self.explored_maze, max_step=3)
-        self.run_shortest_path = DijkstraStrideWithUpdates(self.explored_maze, max_step=3)
+        self.run_shortest_path = DijkstraStride(self.explored_maze, max_step=3)
 
         self.phase = Robot.phase_searching_exploration
-
-        goal_bounds = [self.maze_dim/2 - 1, self.maze_dim/2]
-        self.goal_cells = []
-        for r in goal_bounds:
-            for c in goal_bounds:
-                self.goal_cells.append((r, c))
 
     def next_move(self, sensors):
         """
@@ -86,13 +73,11 @@ class Robot(object):
 
         if self.phase == Robot.phase_searching_exploration:
             rotation, movement = self.searching_exploration.next_move(self.location, self.heading)
-            print("run1: " + str(self.location) + " action: " + str(rotation) + ", " + str(movement))
-            # update todo
-            # if self.location[0] > 6:
-            #     vis.draw_explored_maze(self.explored_maze, self.location, self.heading)
+            # print("run1: " + str(self.location) + " action: " + str(rotation) + ", " + str(movement))
+            # vis.draw_explored_maze(self.explored_maze, self.location, self.heading, self.trail)
             self.update_location(rotation, movement)
             # reached goal, continue if continuing exploration is set
-            if self.location in self.goal_cells:
+            if self.location in self.explored_maze.goal_cells:
                 if self.continuing_exploration is not None:
                     self.phase = Robot.phase_continuing_exploration
                 else:
@@ -101,7 +86,6 @@ class Robot(object):
 
         elif self.phase == Robot.phase_terminate_run1:
             self.phase = Robot.phase_run2
-            # vis.draw_explored_maze(self.explored_maze, self.location, self.heading)
             self.update_location('Reset', 'Reset')
             return 'Reset', 'Reset'
 
@@ -110,20 +94,17 @@ class Robot(object):
             self.update_location(rotation, movement)
             if (rotation, movement) == ('Reset', 'Reset'):
                 self.phase = Robot.phase_run2
-            print("**** Continuing ****")
             return rotation, movement
 
         elif self.phase == Robot.phase_run2:
-            # @todo update current
-            self.run_shortest_path.compute_p2p_action(self.location, self.heading, *self.goal_cells)
+            self.run_shortest_path.compute_p2p_action(self.location, self.heading, *self.explored_maze.goal_cells)
             rotation, movement = self.run_shortest_path.next_action()
-            print("run2: " + str(self.location) + " action: " + str(rotation) + ", " + str(movement))
             self.update_location(rotation, movement)
             return rotation, movement
 
     def update_location(self, rotation, movement):
         """
-        Updates `self.location` and `self.heading` according to `rotation` and `movement`.
+        Updates `self.location`, `self.heading` and `self.trail` according to `rotation` and `movement`.
 
         Parameters
         ----------
@@ -138,6 +119,8 @@ class Robot(object):
         if (rotation, movement) == ('Reset', 'Reset'):
             self.location = (0, 0)
             self.heading = D_UP
+            self.trail = []
+            self.trail.append((self.location, self.heading))
             return
 
         # perform rotation
@@ -171,6 +154,8 @@ class Robot(object):
                     movement += 1
                 else:
                     movement = 0
+
+        self.trail.append((self.location, self.heading))
 
 
 def weighted_random(weights):
@@ -211,6 +196,15 @@ def to_action(heading, new_heading, step=1):
         return -90, step
     else:
         return 0, -1 * step
+
+
+def to_direction(heading, action):
+    if action[0] == 0:
+        return heading
+    if action[0] == -90:
+        return turn_left(heading)
+    if action[0] == 90:
+        return turn_right(heading)
 
 
 def opposing_direction(direction):
@@ -320,6 +314,11 @@ class ExploredMaze(object):
 
     def __init__(self, maze_dim):
         self.maze_dim = maze_dim
+        goal_bounds = [self.maze_dim/2 - 1, self.maze_dim/2]
+        self.goal_cells = []
+        for r in goal_bounds:
+            for c in goal_bounds:
+                self.goal_cells.append((r, c))
         self.cell_map = {}
         for r in range(maze_dim):
             for c in range(maze_dim):
@@ -409,7 +408,6 @@ class ExploredMaze(object):
             loc = self.loc_of_neighbour(loc, direction)
         # reached destination loc
         return True
-
 
     def get_neighbours(self, loc):
         return self.cell_map[loc].get_neighbours()
@@ -617,6 +615,8 @@ class SearchingExploration_OneStepFavorUnexploredSpace(SearchingExploration):
             unexplored_num[turn] = unexplored
 
         # turn = unexplored_num.index(max(unexplored_num))
+        if unexplored_num == [0, 0, 0]:
+            return 90, 0
         turn = weighted_random(unexplored_num)
 
         turn_to_action = [(-90, 1), (0, 1), (90, 1)]
@@ -664,10 +664,8 @@ class ContinuingExploration_CoverAllGoals(ContinuingExploration):
         self.directions = None
         self.reached_goals = set()
         self.unreached_goals = set()
-        self.goal_bounds = [self.explored_maze.maze_dim/2 - 1, self.explored_maze.maze_dim/2]
-        for r in self.goal_bounds:
-            for c in self.goal_bounds:
-                self.unreached_goals.add((r, c))
+        for goal_cell in self.explored_maze.goal_cells:
+            self.unreached_goals.add(goal_cell)
 
     def next_move(self, loc, heading, steps):
         if steps == 999:
@@ -690,7 +688,7 @@ class ContinuingExploration_CoverAllGoals(ContinuingExploration):
         for new_heading in [heading, turn_left(heading), turn_right(heading)]:
             neighbour_loc = self.explored_maze.loc_of_neighbour(loc, new_heading)
             if self.explored_maze.is_permissible(loc, new_heading) and neighbour_loc not in self.reached_goals \
-                    and neighbour_loc[0] in self.goal_bounds and neighbour_loc[1] in self.goal_bounds:
+                    and neighbour_loc in self.explored_maze.goal_cells:
                 return to_action(heading, new_heading)
 
 
