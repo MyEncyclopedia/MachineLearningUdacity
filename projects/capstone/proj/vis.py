@@ -1,6 +1,5 @@
 from maze import Maze
 import turtle
-import sys
 import robot
 
 sq_size = 54
@@ -8,32 +7,61 @@ origin = 0
 window = None
 
 
-def square_top_left(loc):
-    global sq_size, origin
-    return origin + sq_size * loc[0], origin + sq_size * (loc[1] + 1)
+def show_maze(maze_file):
+    """
+    Draw maze specified by `maze_file` input file. Quit app by clicking the window.
+
+    Parameters
+    ----------
+    maze_file : string
+    """
+    maze = Maze(maze_file)
+    draw_explored_maze(_init_explored_maze(maze), (0, 0), robot.D_UP, None)
+    window.exitonclick()
 
 
-def square_top_right(loc):
-    global sq_size, origin
-    return origin + sq_size * (loc[0] + 1), origin + sq_size * (loc[1] + 1)
+def show_maze_shortest(maze_file, max_step=3):
+    """
+    Draw shortest path solution of the maze specified by `maze_file` input file. Quit app by clicking the window.
+
+    Parameters
+    ----------
+    maze_file : string
+    max_step : int, default 3
+        max step allowed in each action.
+    """
+    maze = Maze(maze_file)
+    explored_maze = _init_explored_maze(maze)
+    actions = robot.dijkstra_shortest_path(explored_maze, (0, 0), robot.D_UP, max_step, *explored_maze.goal_cells)
+    print("Total actions: " + str(len(actions)))
+    print(actions)
+    cell_seq = []
+    heading = robot.D_UP
+    cell = (0, 0)
+    cell_seq.append((cell, heading))
+    for action in actions:
+        heading = robot.to_direction(heading, action)
+        direction = heading
+        if action[1] < 0:
+            direction = robot.opposing_direction(heading)
+        cell = explored_maze.loc_of_neighbour(cell, direction, step=abs(action[1]))
+        cell_seq.append((cell, heading))
+
+    draw_explored_maze(explored_maze, (0, 0), robot.D_UP, cell_seq)
+    window.exitonclick()
 
 
-def square_bottom_left(loc):
-    global sq_size, origin
-    return origin + sq_size * loc[0], origin + sq_size * loc[1]
+def draw_explored_maze(explored_maze, cell, heading, cell_seq):
+    """
+    Draw explored maze, highlighting current mouse location and cell sequence it passes.
 
-
-def square_bottom_right(loc):
-    global sq_size, origin
-    return origin + sq_size * (loc[0] + 1), origin + sq_size * loc[1]
-
-
-def square_center(loc):
-    global sq_size, origin
-    return origin + sq_size * loc[0] + sq_size/2, origin + sq_size * loc[1] + sq_size/2
-
-
-def draw_explored_maze(explored_maze, cell, heading, trail):
+    Parameters
+    ----------
+    explored_maze : ExploredMaze
+    cell : list of location tuple (int, int)
+    heading : int
+    cell_seq : None or list of (rotation: int, step: int)
+    """
     global sq_size, origin
     global window
     origin = explored_maze.maze_dim * sq_size / -2
@@ -41,7 +69,6 @@ def draw_explored_maze(explored_maze, cell, heading, trail):
     window = turtle.Screen()
     wally = turtle.Turtle()
     window.clear()
-    # wally.clear()
     wally.speed(0)
 
     to_draw_set = set()
@@ -56,35 +83,58 @@ def draw_explored_maze(explored_maze, cell, heading, trail):
             fill_color = "green"
         elif explored_maze.get_unexplored(loc) > 0:
             fill_color = "pink"
-        draw_cell(wally, explored_maze, loc, fill_color)
+        _draw_cell(wally, explored_maze, loc, fill_color)
         done_set.add(loc)
         for neighbour in explored_maze.get_neighbours(loc):
             if neighbour not in done_set:
                 to_draw_set.add(neighbour)
 
-    if trail is not None:
+    if cell_seq is not None:
         wally.pencolor("blue")
         first_point = True
-        for loc, heading in trail:
+        for loc, h in cell_seq:
             if first_point:
                 wally.penup()
-                wally.goto(*square_center(loc))
+                wally.goto(*_square_center(loc))
                 wally.pendown()
                 first_point = False
                 continue
 
             wally.pendown()
-            wally.goto(*square_center(loc))
-            draw_arrow(wally, heading)
+            wally.goto(*_square_center(loc))
+            _draw_arrow(wally, h)
 
-    draw_heading(wally, cell, heading)
+    _draw_heading(wally, cell, heading)
 
 
-def draw_cell(wally, explored_maze, loc, fill_color='yellow'):
+def _square_top_left(loc):
+    global sq_size, origin
+    return origin + sq_size * loc[0], origin + sq_size * (loc[1] + 1)
+
+
+def _square_top_right(loc):
+    global sq_size, origin
+    return origin + sq_size * (loc[0] + 1), origin + sq_size * (loc[1] + 1)
+
+
+def _square_bottom_left(loc):
+    global sq_size, origin
+    return origin + sq_size * loc[0], origin + sq_size * loc[1]
+
+
+def _square_bottom_right(loc):
+    global sq_size, origin
+    return origin + sq_size * (loc[0] + 1), origin + sq_size * loc[1]
+
+
+def _square_center(loc):
+    global sq_size, origin
+    return origin + sq_size * loc[0] + sq_size/2, origin + sq_size * loc[1] + sq_size/2
+
+
+def _draw_cell(wally, explored_maze, loc, fill_color='yellow'):
     wally.penup()
-    # wally.down()
-    # draw cell
-    wally.goto(origin + sq_size * loc[0] + sq_size/2 , origin + sq_size * (loc[1]+1) - sq_size/2 - sq_size/3)
+    wally.goto(origin + sq_size * loc[0] + sq_size/2, origin + sq_size * (loc[1]+1) - sq_size/2 - sq_size/3)
     wally.setheading(0)
     wally.pendown()
 
@@ -100,10 +150,10 @@ def draw_cell(wally, explored_maze, loc, fill_color='yellow'):
     wally.color("black")
     wally.write(str(loc), font=("Arial", 10, "normal"))
 
-    edge_list = [(robot.D_UP,    square_top_left(loc), 0),
-                 (robot.D_RIGHT, square_bottom_right(loc), 90),
-                 (robot.D_DOWN,  square_bottom_left(loc), 0),
-                 (robot.D_LEFT,  square_bottom_left(loc), 90)]
+    edge_list = [(robot.D_UP,    _square_top_left(loc), 0),
+                 (robot.D_RIGHT, _square_bottom_right(loc), 90),
+                 (robot.D_DOWN,  _square_bottom_left(loc), 0),
+                 (robot.D_LEFT,  _square_bottom_left(loc), 90)]
     for edge in edge_list:
         is_permissible = explored_maze.is_permissible(loc, edge[0])
         if not is_permissible:
@@ -118,8 +168,8 @@ def draw_cell(wally, explored_maze, loc, fill_color='yellow'):
             wally.penup()
 
 
-def draw_heading(wally, loc, heading):
-    wally.goto(*square_center(loc))
+def _draw_heading(wally, loc, heading):
+    wally.goto(*_square_center(loc))
     wally.pensize(5)
     wally.color("red")
     wally.pendown()
@@ -132,11 +182,11 @@ def draw_heading(wally, loc, heading):
     elif heading == robot.D_LEFT:
         wally.setheading(180)
     wally.forward(sq_size/3)
-    draw_arrow(wally, heading)
+    _draw_arrow(wally, heading)
     wally.penup()
 
 
-def draw_arrow(wally, heading):
+def _draw_arrow(wally, heading):
     wally.pendown()
     pos = wally.position()
     coor = {
@@ -156,7 +206,7 @@ def draw_arrow(wally, heading):
     wally.penup()
 
 
-def init_explored_maze(maze):
+def _init_explored_maze(maze):
     explored_maze = robot.ExploredMaze(maze.dim)
     dir_map = {robot.D_DOWN: "down", robot.D_LEFT: "left", robot.D_RIGHT: "right", robot.D_UP: "up"}
 
@@ -168,33 +218,6 @@ def init_explored_maze(maze):
     return explored_maze
 
 
-def show_maze(maze_file):
-    maze = Maze(maze_file)
-    draw_explored_maze(init_explored_maze(maze), (0, 0), robot.D_UP, None)
-    window.exitonclick()
-
-
-def show_maze_shortest(maze_file):
-    maze = Maze(maze_file)
-    explored_maze = init_explored_maze(maze)
-    actions = robot.dijkstra_shortest_path(explored_maze, (0, 0), robot.D_UP, 3, *explored_maze.goal_cells)
-    cell_seq = []
-    heading = robot.D_UP
-    cell = (0, 0)
-    cell_seq.append((cell, heading))
-    for action in actions:
-        heading = robot.to_direction(heading, action)
-        direction = heading
-        if action[1] < 0:
-            direction = robot.opposing_direction(heading)
-        cell = explored_maze.loc_of_neighbour(cell, direction, step=abs(action[1]))
-        cell_seq.append((cell, heading))
-
-    draw_explored_maze(explored_maze, (0, 0), robot.D_UP, cell_seq)
-    window.exitonclick()
-
-
 if __name__ == '__main__':
-
     show_maze_shortest("test_maze_01.txt")
 
