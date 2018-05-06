@@ -49,16 +49,12 @@ The total score only considers total steps taken in test run but also involves s
 
 ## optimization ##
 
-explore during 2 run
+explore during 2nd run
 
 D* lite
 
-continue exploration
-
 
 ## II. Analysis
-_(approx. 2-4 pages)_
-
 ### Data Exploration
 In this section, you will be expected to analyze the data you are using for the problem. This data can either be in the form of a dataset (or datasets), input data (or input files), or even an environment. The type of data should be thoroughly described and, if possible, have basic statistics and information presented (such as discussion of input features or defining characteristics about the input or environment). Any abnormalities or interesting qualities about the data that may need to be addressed have been identified (such as features that need to be transformed or the possibility of outliers). Questions to ask yourself when writing this section:
 - _If a dataset is present for this problem, have you thoroughly discussed certain features about the dataset? Has a data sample been provided to the reader?_
@@ -75,42 +71,106 @@ In this section, you will need to provide some form of visualization that summar
 ### Algorithms and Techniques
 According to [Problem Statement section](#problem-statement), there are 3 stages: goal searching exploration, optimization exploration and second trial.
 
+
+
 #### a. Strategies in goal searching exploration 
 
 The corresponding abstract class is `SearchingExploration` described in [Implementation section](#implementation)
 
+
+
 **One-Step Random Turn**
 
-**One-Step Weighted Random Turn**
+In a cell, a random turn with step size one is made. Because moving backward does not make mouse turn around direction, it's very likely that in next action it moves forward again. In order to decrease possibility of this going back and forth, only 3 actions are supported, namely, turning left, forward and turning right. However, there is also case where the mouse reaches dead end and hence the only way is to back off. In such case, turning right with no progress is returned.
 
-**One-Step Towards Unexplored Cell**
+Another optimization is that random guess is guaranteed not to include one step progress in the direction that hits a wall.
 
-**One-Step Towards Unexplored Space**
+Strategy instantialization: `SearchingExploration_WeightedRandom()`.
 
-**Multi-Step Goal Oriented**  `SearchingExploration_GoalOriented`
+
+
+**One-Step Weighted Random Turn** 
+
+Similar to One-Step Random Turn above, but weights of 3 actions can be specified to favor certain actions. For example, turn_weights=[2, 5, 2] means the weights of turning left, forward, turning right are 2, 5, and 2 respectively. Note that if action would lead to hit wall, the corresponding weight is would be zero, i.e. weighted random action is also guaranteed not to hit a wall.
+
+Strategy instantialization: `SearchingExploration_WeightedRandom(turn_weights=[2, 5, 2])`
+
+
+
+**One-Step Favoring Unexplored Cell**
+
+Instead of random guess, action is determined by how much neighbouring cells are unexplored. By unexplored, we mean at least one edge of the cell is not identified. Use unexplored num as weight and then randomly guess one action.
+
+
+
+**One-Step Favoring Unexplored Space**
+
+An extended strategy of One-Step Favoring Unexplored Cell above. The idea is that although a neibouring cell status has been determined, that does not mean no information would be gained if that path is followed. Actually, the neighbouring cell is likely to lead to a cluster of cells that are unexplored. So the weight becomes the total sum of unexplored cell number one neighbour could lead to.
+
+Strategy instantialization: `SearchingExploration_OneStepFavorUnexploredSpace()`
+
+
+
+**One-Step Left Hand Rule** 
+
+stuck 
+Strategy instantialization: `SearchingExploration_LeftHandRule()`
+
+
+
+**Multi-Step Goal Oriented (A*) **
+
+Strategy instantialization: `SearchingExploration_GoalOriented`
+
+
 
 #### b. Strategies in second trial
 
-The corresponding abstract class is `ShortestPath` described in [Implementation section](#implementation)
+The corresponding abstract class is `CalcShortestPath` described in [Implementation section](#implementation)
+
+
 
 **One-Step Dijkstra Shortest Path**
+
+Once entering 2nd run, a shortest path starting from (0, 0) with current maze status is computed using Dijkstra shortest path algorithm. This strategy ignores further sensor updates along the way and applies action series computed at initialization. Each action would make one progress.
+
+Strategy instantialization: `DijkstraStride()`
+
+
+
 **Multi-Step Dijkstra Shortest Path**
-**Multi-Step Dijkstra Shortest Path with Updates**
+
+Similar to One-Step Dijkstra Shortest Path strategy but with max step size being 3.
+
+Strategy instantialization: `DijkstraStride(max_step=3)`
+
+
+
+**Multi-Step Dijkstra Shortest Path with Sensor Updates**
+
+This strategy differes from previous one in that it considers sensor updates along the way and re-computes actions for each movement.
+
+Strategy instantialization: `DijkstraStrideWithUpdates(max_step=3)`.
+
+
+
 
 #### c. Strategies in optimization exploration
 
-The corresponding abstract class is `XXX` described in [Implementation section](#implementation)
+The corresponding abstract class is `ContinuingExploration` described in [Implementation section](#implementation)
+
+
+**Cover All Goals**
+
+After reaching first goal cell, it continues to reach other 3 goal cells if necessary.
+
+Strategy instantialization: `ContinuingExploration_CoverAllGoals()`
 
 **Coverage**
+
 **Trade-off**
 
 
-
-In this section, you will need to discuss the algorithms and techniques you intend to use for solving the problem. You should justify the use of each one based on the characteristics of the problem and the problem domain. Questions to ask yourself when writing this section:
-
-- _Are the algorithms you will use, including any default variables/parameters in the project clearly defined?_
-- _Are the techniques to be used thoroughly discussed and justified?_
-- _Is it made clear how the input data or datasets will be handled by the algorithms and techniques chosen?_
 
 ### Benchmark
 In this section, you will need to provide a clearly defined benchmark result or threshold for comparing across performances obtained by your solution. The reasoning behind the benchmark (in the case where it is not an established result) should be discussed. Questions to ask yourself when writing this section:
@@ -165,73 +225,75 @@ Key methods of `ExploredMaze` are listed below:
 ```python
 class ExploredMaze(object):
 
-    """
-    Updates maze connectivity status with sensor information.
-    
-    Parameters
-    ----------
-    loc : tuple (int, int)
-        Tuple of location, in format of (0, 0).
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-    depth : int
-        0 indicates wall;
-        other positive number indicating how far from this `loc` mouse can move forward.
-    
-    """
-    def sensor_update(self, loc, direction, depth)
-    
-    
-    """
-    Return location relative to `loc`. If the resulting location is out of maze, None is returned.
-    
-    Parameters
-    ----------
-    loc : tuple (int, int)
-        Tuple of location, in format of (0, 0).
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-    step : int
-        distance to `loc`, optional
-    
-    Returns
-    -------
-    new_location: tuple of (rotation: int, movement: int), or None
-        None when out of maze.
-    """
-    def loc_of_neighbour(self, loc, direction, step=1)
-    
-    """
-    Checks whether the mouse can move from a location along a direction according to current connectivity status.
-    
-    Parameters
-    ----------
-    loc : tuple (int, int)
-        Tuple of location, in format of (0, 0).
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-    step : int
-        distance to `loc`, optional
-    
-    Returns
-    -------
-    is_permissible: True, False, None
-        None indicates there is not enough information along the way, i.e. not sure there is wall between two cells in the way.
-    """
-    def is_permissible(self, loc, direction, step=1)
-    
-    """
-    Computes set of cells that can be reached from (0, 0).
-    
-    Parameters
-    ----------
-    
-    Returns
-    -------
-    reached_set: set of location tuple (int, int)
-    """
-    def compute_reachable_cells(self)
+    def sensor_update(self, loc, direction, depth):
+        """
+        Updates maze connectivity status with sensor information.
 
+        Parameters
+        ----------
+        loc : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+        depth : int
+            0 indicates wall;
+            other positive number indicating how far from this `loc` mouse can move forward.
+
+        """
+        
+    def loc_of_neighbour(self, loc, direction, step=1):
+        """
+        Return location relative to `loc`. If the resulting location is out of maze, None is returned.
+
+        Parameters
+        ----------
+        loc : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+        step : int
+            distance to `loc`, optional
+
+        Returns
+        -------
+        new_location: tuple of (rotation: int, movement: int), or None
+            None when out of maze.
+        """
+    
+    def is_permissible(self, loc, direction, step=1):
+        """
+        Checks whether the mouse can move from a location along a direction according to current connectivity status.
+
+        Parameters
+        ----------
+        loc : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+        step : int
+            distance to `loc`, optional
+
+        Returns
+        -------
+        is_permissible: True, False, None
+            None indicates there is not enough information along the way, i.e. not sure there is wall between two cells in the way.
+        """
+        
+    def compute_reachable_cells(self, loc_start=(0, 0), loc_excluded=None):
+        """
+        Computes set of cells that can be reached from (0, 0).
+
+        Parameters
+        ----------
+        loc_start : tuple (int, int), default value (0, 0)
+            Tuple of starting location, in format of (0, 0).
+        loc_excluded : tuple (int, int), default value None
+            Tuple of location to be excluded from path, in format of (0, 0).
+
+        Returns
+        -------
+        reached_set: set of location tuple (int, int)
+        """        
 ```
 
 
@@ -240,114 +302,142 @@ class ExploredMaze(object):
 ```python
 class Cell(object):
     
-    """
-    Connects this cell with a neighbouring cell and vice versa.
-    
-    Parameters
-    ----------
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-    node : tuple (int, int)
-        neighbouring location.
+    def connect(self, direction, node):
+        """
+        Connects this cell with a neighbouring cell and vice versa.
+
+        Parameters
+        ----------
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+        node : tuple (int, int)
+            neighbouring location.
+
+        Raises
+        ------
+        Exception
+            When wall between these 2 nodes already established.
+        """
         
-    Raises
-    ------
-    Exception
-        When wall between these 2 nodes already established.
-    """
-    def connect(self, direction, node)
+    def set_wall(self, direction):
+        """
+        Sets a wall to one edge of current cell.
+
+        Parameters
+        ----------
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT, the direction relative to current cell.
+
+        Raises
+        ------
+        Exception
+            When these 2 nodes are already connected.
+        """
         
-    """
-    Sets a wall to one edge of current cell.
-    
-    Parameters
-    ----------
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT, the direction relative to current cell.
-    
-    Raises
-    ------
-    Exception
-        When these 2 nodes are already connected.
-    """
-    def set_wall(self, direction)
-    
-    """
-    Checks whether the mouse can move one step from current cell along the direction.
-    
-    Parameters
-    ----------
-    direction : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-    
-    Returns
-    -------
-    is_permissible: True, False, None
-        None indicates there is not enough information, i.e. not sure there is wall in that direction.
-    """
-    def is_permissible(self, direction)
-    
-    """
-    Gets all connected neighbours currently explored.
-    
-    Parameters
-    ----------
-    
-    Returns
-    -------
-    neighbour_list: list of location tuple (int, int)
-    """
-    def get_neighbours(self)
+    def is_permissible(self, direction):
+        """
+        Checks whether the mouse can move one step from current cell along the direction.
+
+        Parameters
+        ----------
+        direction : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+
+        Returns
+        -------
+        is_permissible: True, False, None
+            None indicates there is not enough information, i.e. not sure there is wall in that direction.
+        """
 
 ```
 
 
 ```python
 class SearchingExploration(object):
-    
-    """
-    Decides next move according to `loc` and its `heading`.
 
-    Parameters
-    ----------
-    loc : tuple (int, int)
-        Tuple of location, in format of (0, 0).
-    heading : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-    
-    Returns
-    -------
-    next_action : tuple of (rotation: int, movement: int)
-        For example: (90, 3).
-    """
     @abc.abstractmethod
-    def next_move(self, loc, heading)
+    def next_move(self, loc, heading):
+        """
+        Decides next move according to `loc` and its `heading`.
+
+        Parameters
+        ----------
+        loc : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        heading : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+
+        Returns
+        -------
+        next_action : tuple of (rotation: int, movement: int), or tuple of ('Reset', 'Reset')
+            For example: (90, 3).
+        """
+        pass    
+
     
 ```
 
 
 ```python
-class RunShortestPath(object):
+class ContinuingExploration(object):
 
-    """
-    Computes list of actions that would follow shortest path starting `loc_start` with `heading`.
-
-    Parameters
-    ----------
-    loc_start : tuple (int, int)
-        Tuple of location, in format of (0, 0).
-    heading : int
-        Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
-
-    Returns
-    -------
-    action_list : list of tuple (rotation: int, movement: int)
-        For example: [(90, 3), [0, 3)]
-    """
     @abc.abstractmethod
-    def compute_p2p_action(self, loc_start, heading, *args)
+    def next_move(self, loc, heading, steps):
+        """
+        Decides next move according to `loc` and its `heading`.
+
+        Parameters
+        ----------
+        loc : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        heading : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+        steps : int
+            number of steps
+
+        Returns
+        -------
+        next_action : tuple of (rotation: int, movement: int), or tuple of ('Reset', 'Reset')
+            For example: (90, 3).
+        """
+        pass
+ 
 ```
 
+```python
+class CalcShortestPath(object):
+
+    @abc.abstractmethod
+    def compute_p2p_action(self, loc_start, heading, *args):
+        """
+        Computes list of actions that would follow shortest path starting `loc_start` with `heading`.
+
+        Parameters
+        ----------
+        loc_start : tuple (int, int)
+            Tuple of location, in format of (0, 0).
+        heading : int
+            Must be D_DOWN, D_LEFT, D_UP, D_RIGHT.
+
+        Returns
+        -------
+        action_list : list of tuple (rotation: int, movement: int)
+            For example: [(90, 3), [0, 3)]
+        """
+        pass
+
+    @abc.abstractmethod
+    def next_action(self):
+        """
+        Returns next action computed previously by `compute_p2p_action`.
+
+        Returns
+        -------
+        action : tuple of (rotation: int, movement: int)
+        """
+        pass
+ 
+```
 
 
 ### Refinement

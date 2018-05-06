@@ -42,10 +42,13 @@ class Robot(object):
         self.steps = 0
         self.explored_maze = ExploredMaze(maze_dim)
 
-        self.searching_exploration = SearchingExploration_OneStepWeightedRandom(self.explored_maze)
+        # self.searching_exploration = SearchingExploration_OneStepWeightedRandom(self.explored_maze)
+        # self.searching_exploration = SearchingExploration_OneStepFavorUnexploredSpace(self.explored_maze)
+        self.searching_exploration = SearchingExploration_GoalOriented(self.explored_maze)
         # self.continuing_exploration = ContinuingExploration_CoverAllGoals(self.explored_maze)
         self.continuing_exploration = None
-        self.run_shortest_path = DijkstraStride(self.explored_maze, max_step=3)
+        # self.run_shortest_path = DijkstraStride(self.explored_maze, max_step=3)
+        self.run_shortest_path = DijkstraStrideWithUpdates(self.explored_maze, max_step=3)
 
         self.phase = Robot.phase_searching_exploration
 
@@ -112,26 +115,26 @@ class Robot(object):
 
         elif self.phase == Robot.phase_run2:
             # @todo update current
-            self.run_shortest_path.compute_p2p_action((0, 0), D_UP, *self.goal_cells)
+            self.run_shortest_path.compute_p2p_action(self.location, self.heading, *self.goal_cells)
             rotation, movement = self.run_shortest_path.next_action()
             print("run2: " + str(self.location) + " action: " + str(rotation) + ", " + str(movement))
             self.update_location(rotation, movement)
             return rotation, movement
 
-    """
-    Updates `self.location` and `self.heading` according to `rotation` and `movement`.
-    
-    Parameters
-    ----------
-    rotation : int or 'Reset'
-    movement : int or 'Reset'
-
-    Raises
-    ------
-    Exception
-        If (rotation, movement) cannot applied to current status, e.g. invalid value
-    """
     def update_location(self, rotation, movement):
+        """
+        Updates `self.location` and `self.heading` according to `rotation` and `movement`.
+
+        Parameters
+        ----------
+        rotation : int or 'Reset'
+        movement : int or 'Reset'
+
+        Raises
+        ------
+        Exception
+            If (rotation, movement) cannot applied to current status, e.g. invalid value
+        """
         if (rotation, movement) == ('Reset', 'Reset'):
             self.location = (0, 0)
             self.heading = D_UP
@@ -160,7 +163,6 @@ class Robot(object):
                     movement -= 1
                 else:
                     movement = 0
-                    # raise Exception("Movement stopped by wall")
             else:  # < 0
                 if self.explored_maze.is_permissible(self.location, opposing_direction(self.heading)):
                     self.location = self.explored_maze.loc_of_neighbour(self.location, opposing_direction(self.heading))
@@ -169,7 +171,6 @@ class Robot(object):
                     movement += 1
                 else:
                     movement = 0
-                    # raise Exception("Movement stopped by wall")
 
 
 def weighted_random(weights):
@@ -186,7 +187,10 @@ def weighted_random(weights):
     idx_to_weights : int
         The selected index.
     """
-    ranges = [[], [], [], []]
+    if not any(weights):
+        raise Exception("weighted_random(): all zero in weights")
+
+    ranges = [[] for x in weights]
     total = 0
     for idx in range(len(weights)):
         ranges[idx] = range(total, total + weights[idx])
@@ -277,7 +281,7 @@ class ContinuingExploration(object):
         pass
 
 
-class RunShortestPath(object):
+class CalcShortestPath(object):
     def __init__(self, explored_maze):
         self.explored_maze = explored_maze
 
@@ -551,8 +555,25 @@ class Cell(object):
 
 
 class SearchingExploration_OneStepWeightedRandom(SearchingExploration):
+    """
+    One step action with weights.
+    Weights param is passed in as `turn_weights` containing exact 3 int, meaning the weight of turning left,
+    moving forward and turning right. No weight is given to moving backward to increase the possibility of
+    exploring more cells. However, in case of dead end, the only way is to back off. Because moving backward does
+    not make mouse turn around direction, it's very likely for this strategy to move forward again. So one
+    optimization in such case is to just turn right.
+    """
 
-    def __init__(self, explored_maze, turn_weights=[1, 1, 1, 1]):
+    def __init__(self, explored_maze, turn_weights=[1, 1, 1]):
+        """
+        constructor
+
+        Parameters
+        ----------
+        turn_weights : list of int
+            weights of rotation in order of [turn_left, forward, turn_right]
+
+        """
         super(SearchingExploration_OneStepWeightedRandom, self).__init__(explored_maze)
         self.turn_weights = turn_weights
 
@@ -562,14 +583,13 @@ class SearchingExploration_OneStepWeightedRandom(SearchingExploration):
                 for new_heading in [heading, turn_left(heading), turn_right(heading)]]):
             return 90, 0
 
-        # prob = [0, 3, 5, 3]  # backward, turn left, forward, turn right
-        turn_map = {1: turn_left(heading), 2: heading, 3: turn_right(heading)}
-        for turn in range(1, 4):
-            if not self.explored_maze.is_permissible(loc, turn_map[turn]):
-                self.turn_weights[turn] = 0
+        turn_weights_copy = self.turn_weights[:]
+        for idx, direction in enumerate([turn_left(heading), heading, turn_right(heading)]):
+            if not self.explored_maze.is_permissible(loc, direction):
+                turn_weights_copy[idx] = 0
 
-        turn = weighted_random(self.turn_weights)
-        turn_to_action = {1: (-90, 1), 2: (0, 1), 3: (90, 1)}
+        turn = weighted_random(turn_weights_copy)
+        turn_to_action = [(-90, 1), (0, 1), (90, 1)]
         return turn_to_action[turn]
 
 
@@ -581,34 +601,26 @@ class SearchingExploration_OneStepFavorUnexploredSpace(SearchingExploration):
                 for new_heading in [heading, turn_left(heading), turn_right(heading)]]):
            return 90, 0
 
-        connected_space = [[], [], [], []]  # backward, turn left, forward, turn right
-        if self.explored_maze.is_permissible(loc, turn_left(heading)):
-            neighbour = self.explored_maze.loc_of_neighbour(loc, turn_left(heading))
-            connected_space[1] = self.explored_maze.compute_reachable_cells(loc_start=neighbour, loc_excluded=loc)
-        if self.explored_maze.is_permissible(loc, heading):
-            neighbour = self.explored_maze.loc_of_neighbour(loc, heading)
-            connected_space[2] = self.explored_maze.compute_reachable_cells(loc_start=neighbour, loc_excluded=loc)
-        if self.explored_maze.is_permissible(loc, turn_right(heading)):
-            neighbour = self.explored_maze.loc_of_neighbour(loc, turn_right(heading))
-            connected_space[3] = self.explored_maze.compute_reachable_cells(loc_start=neighbour, loc_excluded=loc)
+        connected_space = [[], [], []]  # turn left, forward, turn right
+        for idx, direction in enumerate([turn_left(heading), heading, turn_right(heading)]):
+            if self.explored_maze.is_permissible(loc, direction):
+                neighbour = self.explored_maze.loc_of_neighbour(loc, direction)
+                connected_space[idx] = self.explored_maze.compute_reachable_cells(loc_start=neighbour, loc_excluded=loc)
 
-        weights = [0, 0, 0, 0]
-        for turn in range(4):
+        unexplored_num = [0, 0, 0]
+        for turn in range(3):
             unexplored = 0
             for cell in connected_space[turn]:
                 if self.explored_maze.get_unexplored(cell) > 0:
                     # unexplored += 1
                     unexplored += self.explored_maze.get_unexplored(cell)
-            weights[turn] = unexplored
-        turn = weighted_random(weights)
-        if turn == 1:
-            return -90, 1
-        elif turn == 2:
-            return 0, 1
-        elif turn == 3:
-            return 90, 1
-        else:
-            raise Exception("Should not go back")
+            unexplored_num[turn] = unexplored
+
+        # turn = unexplored_num.index(max(unexplored_num))
+        turn = weighted_random(unexplored_num)
+
+        turn_to_action = [(-90, 1), (0, 1), (90, 1)]
+        return turn_to_action[turn]
 
 
 class SearchingExploration_LeftHandRule(SearchingExploration):
@@ -682,7 +694,7 @@ class ContinuingExploration_CoverAllGoals(ContinuingExploration):
                 return to_action(heading, new_heading)
 
 
-class DijkstraStride(RunShortestPath):
+class DijkstraStride(CalcShortestPath):
 
     def __init__(self, explored_maze, max_step=1):
         super(DijkstraStride, self).__init__(explored_maze)
@@ -699,6 +711,20 @@ class DijkstraStride(RunShortestPath):
             self.action_iter = iter(self.actions)
         else:
             return self.actions
+
+
+class DijkstraStrideWithUpdates(CalcShortestPath):
+
+    def __init__(self, explored_maze, max_step=1):
+        super(DijkstraStrideWithUpdates, self).__init__(explored_maze)
+        self.max_step = max_step
+        self.next_act = None
+
+    def next_action(self):
+        return self.next_act
+
+    def compute_p2p_action(self, loc_start, heading, *args):
+        self.next_act = dijkstra_shortest_path(self.explored_maze, loc_start, heading, self.max_step, *args)[0]
 
 
 def dijkstra_shortest_path(explored_maze, loc_start, heading, max_step=1, *args):
