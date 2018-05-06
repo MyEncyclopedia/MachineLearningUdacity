@@ -174,7 +174,27 @@ def show_maze(maze_file):
     window.exitonclick()
 
 
+def show_maze_shortest(maze_file):
+    maze = Maze(maze_file)
+    explored_maze = init_explored_maze(maze)
+    actions = robot.dijkstra_shortest_path(explored_maze, (0, 0), robot.D_UP, 3, *explored_maze.goal_cells)
+    cell_seq = []
+    heading = robot.D_UP
+    cell = (0, 0)
+    cell_seq.append((cell, heading))
+    for action in actions:
+        heading = robot.to_direction(heading, action)
+        direction = heading
+        if action[1] < 0:
+            direction = robot.opposing_direction(heading)
+        cell = explored_maze.loc_of_neighbour(cell, direction, step=abs(action[1]))
+        cell_seq.append((cell, heading))
+
+    draw_explored_maze(explored_maze, (0, 0), robot.D_UP, cell_seq)
+    window.exitonclick()
+
+
 if __name__ == '__main__':
 
-    show_maze("test_maze_01.txt")
+    show_maze_shortest("test_maze_01.txt")
 
