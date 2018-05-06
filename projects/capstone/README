@@ -1,0 +1,13 @@
+project files:
+
+proposal.md
+  proposal in markdown format
+proposal.pdf
+  exported proposal pdf
+capstone_report.md
+  report in markdown format
+capstone_report.pdf
+  exported report pdf
+proj/
+  robot.py is the only file needed to modify, running with it gives best score mentioned in the report.
+  vis.py is aux script to visualize maze and route.
